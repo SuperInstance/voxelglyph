@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voxelglyph — what a voxel agent can read through a text encoder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f7f5f0; --card:#fff; --line:#e9e3d6; --line-soft:#f0ebe0;
+    --ink:#14171e; --ink-2:#3a4256; --ink-3:#7c7a72;
+    --primary:#2f6f5e; --accent:#c97b3f; --warn:#b06367;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Outfit',system-ui,sans-serif;font-size:16px;line-height:1.65;
+    background-image:radial-gradient(ellipse 60% 40% at 12% 0%, rgba(47,111,94,.06), transparent 60%),
+                     radial-gradient(ellipse 50% 35% at 92% 8%, rgba(201,123,63,.05), transparent 60%);
+    background-attachment:fixed}
+  .wrap{max-width:1024px;margin:0 auto;padding:0 24px}
+  @media(min-width:768px){.wrap{padding:0 32px}}
+  h1,h2,h3{font-family:'DM Serif Display',Georgia,serif;font-weight:400;letter-spacing:-.005em;margin:0}
+  h1{font-size:2.4rem;line-height:1.12;margin:0 0 20px}
+  h2{font-size:1.75rem;line-height:1.2;margin:0 0 14px}
+  h3{font-size:1.2rem;margin:0 0 10px;font-family:'Outfit',sans-serif;font-weight:600;letter-spacing:0}
+  p{margin:0 0 14px;color:var(--ink-2)}
+  .lede{font-size:1.14rem;color:var(--ink-2);max-width:62ch}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .eyebrow{font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:600;margin:0 0 14px}
+  section{padding:64px 0}
+  .sec-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:8px}
+  .sec-head svg{flex:none;margin-top:5px;color:var(--primary)}
+  hr{border:0;border-top:1px solid var(--line);margin:0}
+
+  /* hero */
+  .hero{padding:88px 0 56px}
+  .hero .claim{font-size:1.32rem;line-height:1.45;color:var(--ink);max-width:34ch;
+    font-family:'DM Serif Display',serif;margin:0 0 22px}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:.76rem;font-weight:600;
+    background:rgba(47,111,94,.09);color:var(--primary);padding:5px 12px;border-radius:999px;
+    margin:0 0 22px}
+  .pill.dud{background:rgba(176,99,103,.1);color:var(--warn)}
+
+  /* cards + grids */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;
+    box-shadow:0 2px 8px rgba(0,0,0,.04)}
+  .grid2{display:grid;gap:20px}
+  @media(min-width:820px){.grid2{grid-template-columns:1fr 1fr}}
+  .grid3{display:grid;gap:16px}
+  @media(min-width:820px){.grid3{grid-template-columns:repeat(3,1fr)}}
+
+  /* bench */
+  .bench-row{display:grid;grid-template-columns:130px 1fr 74px;gap:14px;align-items:center;padding:7px 0}
+  .bar-bg{height:20px;background:var(--line-soft);border-radius:6px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--primary),#4a8e7c)}
+  .bar-fill.dud{background:linear-gradient(90deg,var(--warn),#c98a8d)}
+  .bar-fill.dim{background:linear-gradient(90deg,#9aa39c,#b9c0bb)}
+  .bench-row .val{font-family:'JetBrains Mono',monospace;font-size:.83rem;text-align:right;color:var(--ink)}
+  .bench-row .label{font-size:.88rem;color:var(--ink-2)}
+
+  /* kv */
+  .kv{display:grid;grid-template-columns:118px 1fr;gap:0;border-top:1px dashed var(--line)}
+  .kv>div{padding:9px 0;border-bottom:1px dashed var(--line);font-size:.88rem}
+  .kv .k{color:var(--ink-3);font-weight:500}
+  .kv .v{color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:.83rem}
+
+  /* demo */
+  .demo{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card);
+    box-shadow:0 4px 16px -2px rgba(0,0,0,.06)}
+  .demo-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+    padding:14px 18px;border-bottom:1px solid var(--line);background:#fbfaf7}
+  .demo-grid{display:grid;gap:0}
+  @media(min-width:860px){.demo-grid{grid-template-columns:1fr 1fr}}
+  .pane{padding:18px}
+  .pane+.pane{border-top:1px solid var(--line)}
+  @media(min-width:860px){.pane+.pane{border-top:0;border-left:1px solid var(--line)}}
+  .pane-label{font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);
+    font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:7px}
+  #canvas{display:block;width:100%;height:auto;border-radius:10px;image-rendering:pixelated;
+    border:1px solid var(--line)}
+  #textout{font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.05;letter-spacing:0;
+    white-space:pre;background:#14171e;color:#e8e6df;border-radius:10px;padding:12px;
+    overflow-x:auto;letter-spacing:0}
+  .toggle{display:inline-flex;background:var(--line-soft);border-radius:10px;padding:3px;gap:3px}
+  .toggle button{font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;border:0;
+    background:transparent;color:var(--ink-3);padding:7px 14px;border-radius:8px;cursor:pointer;
+    transition:all .18s ease}
+  .toggle button[aria-pressed="true"]{background:var(--card);color:var(--primary);
+    box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .toggle button:hover{color:var(--ink)}
+  .verdict{margin-top:14px;padding:12px 14px;border-radius:10px;font-size:.88rem;line-height:1.5;
+    display:flex;gap:10px;align-items:flex-start}
+  .verdict svg{flex:none;margin-top:2px}
+  .v-bad{background:rgba(176,99,103,.08);color:var(--warn)}
+  .v-good{background:rgba(47,111,94,.08);color:var(--primary)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:.8rem;color:var(--ink-2)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+
+  /* misc */
+  .note{font-size:.85rem;color:var(--ink-3);border-left:2px solid var(--line);padding-left:14px;margin:0}
+  .status{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:600;padding:4px 11px;
+    border-radius:999px}
+  .s-ok{background:rgba(47,111,94,.09);color:var(--primary)}
+  .s-null{background:rgba(201,123,63,.1);color:var(--accent)}
+  .foot{padding:40px 0 64px;border-top:1px solid var(--line);font-size:.85rem;color:var(--ink-3)}
+  a{color:var(--primary);text-decoration:none;border-bottom:1px solid rgba(47,111,94,.3)}
+  a:hover{border-bottom-color:var(--primary)}
+  .links{display:flex;flex-wrap:wrap;gap:18px;font-size:.88rem}
+</style>
+</head>
+<body>
+
+<!-- ─────────────  HERO  ───────────── -->
+<header class="hero wrap">
+  <div class="pill">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>
+    SuperInstance / voxelglyph
+  </div>
+  <h1>A voxel agent reading text cannot see two colours that are 403 apart in RGB.</h1>
+  <p class="lede">That is not a training failure. It is a property of the encoder, and it is provable before a single example is generated.</p>
+  <p><a href="#demo">See it happen &darr;</a> &nbsp;·&nbsp; <a href="https://github.com/SuperInstance/Syzygy">SuperInstance/Syzygy</a> &nbsp;·&nbsp; <a href="https://github.com/SuperInstance/voxelglyph">source</a></p>
+</header>
+
+<hr>
+
+<!-- ─────────────  THE DEMO  ───────────── -->
+<section id="demo" class="wrap">
+  <div class="sec-head">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+    <h2>Side by side</h2>
+  </div>
+  <p>The same scene, twice. On the left, what a renderer produces. On the right, what
+  <span class="mono">Syzygy</span> computes from it &mdash; the real integer path, ported line for line, nothing approximated.
+  <strong>Flip the palette.</strong></p>
+
+  <div class="demo" style="margin-top:22px">
+    <div class="demo-bar">
+      <div class="toggle" role="group" aria-label="Palette">
+        <button id="btn-adv" aria-pressed="true">Adversarial palette</button>
+        <button id="btn-ord" aria-pressed="false">Ordinary palette</button>
+      </div>
+      <div class="mono" id="modepill" style="font-size:.76rem;color:var(--ink-3)"></div>
+    </div>
+
+    <div class="demo-grid">
+      <div class="pane">
+        <p class="pane-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          What the renderer draws
+        </p>
+        <canvas id="canvas" width="480" height="192"></canvas>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="pane">
+        <p class="pane-label">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          What syz_luma8 &rarr; Braille gives
+        </p>
+        <div id="textout"></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid3" style="margin-top:20px">
+    <div class="card">
+      <h3>The projection</h3>
+      <div class="kv" id="kvproj"></div>
+    </div>
+    <div class="card">
+      <h3>What survives</h3>
+      <p style="font-size:.9rem;margin:0">Two colours in one luma class are not
+      &ldquo;hard to tell apart&rdquo;. They are <em>the same input</em>. No model recovers a
+      distinction the representation never carried.</p>
+    </div>
+    <div class="card">
+      <h3>Then the pool</h3>
+      <p style="font-size:.9rem;margin:0">403 apart in RGB is about <strong>20 apart</strong>
+      after a 2&times;4 block average &mdash; comparable to the quantisation step. The loss is not
+      only the projection; it is the pooling, and the pooling is what buys the determinism.</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- ─────────────  THE CEILING  ───────────── -->
+<section class="wrap">
+  <div class="sec-head">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+    <h2>The ceiling, before any data exists</h2>
+  </div>
+  <p>Enumerating the RGB cube and bucketing by luma finds the blind spot directly.
+  Eight materials drawn from that one class have a brightness-only accuracy ceiling of
+  <span class="mono">1/8</span> &mdash; independent of architecture, dataset, and training budget.</p>
+  <div style="margin-top:22px">
+    <div class="bench-row"><span class="label">RGB (pixels)</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div><span class="val">1.0000</span></div>
+    <div class="bench-row"><span class="label">Equal luma</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:12.5%"></div></div><span class="val">0.1250</span></div>
+    <div class="bench-row"><span class="label">Material id</span>
+      <div class="bar-bg"><div class="bar-fill" style="width:100%"></div></div><span class="val">1.0000</span></div>
+  </div>
+  <p class="note" style="margin-top:20px">A first attempt at this experiment failed usefully: eight
+  carefully chosen &ldquo;chromatically different&rdquo; materials produced <em>no</em> collisions and a
+  ceiling of 1.0000, which demonstrated nothing. The blind spots are not something you trip
+  over by choosing colours carefully. You have to go looking for them.</p>
+</section>
+
+<hr>
+
+<!-- ─────────────  STATUS  ───────────── -->
+<section class="wrap">
+  <div class="sec-head">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    <h2>Honest status</h2>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <span class="status s-ok">SOLID</span>
+      <h3 style="margin-top:12px">The luma ceiling</h3>
+      <p style="font-size:.92rem;margin:0">Reproducible, and the ceiling is a property of the
+      encoder rather than of any model. The demo above runs the same code.</p>
+    </div>
+    <div class="card">
+      <span class="status s-null">INCONCLUSIVE</span>
+      <h3 style="margin-top:12px">The distillation</h3>
+      <p style="font-size:.92rem;margin:0">All three encodings land at or below a majority-class
+      baseline. Three instruments lied on the way to that number &mdash; degenerate labels, unequal
+      input widths, and a &ldquo;3-layer MLP&rdquo; that was linear. <em>Below baseline here means
+      undertrained, not unreadable.</em></p>
+    </div>
+  </div>
+
+  <h3 style="margin:40px 0 12px">The question worth asking next</h3>
+  <p>Not <em>how much does brightness lose</em> &mdash; that is answered. It is
+  <em>how much brightness can you afford to keep alongside material identity</em>. The 2&times;4
+  pool is what buys the compactness and the byte-identical determinism, so the answer is
+  probably a mixed channel rather than a swap.</p>
+  <p>The measurable version: find the smallest per-cell symbol set for which a <em>linear</em>
+  policy matches a pixel policy&rsquo;s accuracy. No renderer required.</p>
+</section>
+
+<hr>
+
+<!-- ─────────────  FOOT  ───────────── -->
+<footer class="foot wrap">
+  <div class="links">
+    <a href="https://github.com/SuperInstance/voxelglyph">voxelglyph</a>
+    <a href="https://github.com/SuperInstance/Syzygy">Syzygy</a>
+    <a href="https://github.com/SuperInstance/chiaroscuro">chiaroscuro</a>
+  </div>
+  <p style="margin-top:14px;margin-bottom:0">Every number on this page comes from code you can
+  clone and run. The ported path was checked against the C constants:
+  <span class="mono">luma(255,0,0)=76</span>, <span class="mono">luma(0,255,0)=149</span>,
+  full white <span class="mono">=255</span> exactly, because the BT.601 weights sum to 256.</p>
+</footer>
+
+<script>
+/* ── the Syzygy integer path, ported from SuperInstance/Syzygy ─────────────────
+   Every operation is integer-only, matching the C. The scene below is rendered to
+   pixels, then passed through luma8 -> Braille exactly as the engine does.            */
+const LUMA_WR=[77,150,29], BR_L=[0,1,2,6], BR_R=[3,4,5,7];
+const luma8=(r,g,b)=>((r*77+g*150+b*29)>>8)&0xFF;
+const brailleBit=(row,col)=>(col===0?BR_L:BR_R)[row&3];
+function braillePack(blk,th){let m=0;for(let r=0;r<4;r++)for(let c=0;c<2;c++)if(blk[r][c]>th)m|=1<<brailleBit(r,c);return m;}
+
+/* two palettes. The only difference is GOAL and HAZARD. */
+const PALETTES = {
+  adversarial: {
+    name:'Adversarial', EMPTY:[18,18,24], FLOOR:[96,96,96], WALL:[60,60,64],
+    GOAL:[0,240,0], HAZARD:[255,60,255], ORE:[30,200,170], SELF:[240,200,40]
+  },
+  ordinary: {
+    name:'Ordinary', EMPTY:[18,18,24], FLOOR:[96,96,96], WALL:[60,60,64],
+    GOAL:[30,200,170], HAZARD:[200,40,40], ORE:[0,240,0], SELF:[240,200,40]
+  }
+};
+const KEY=['EMPTY','FLOOR','WALL','GOAL','HAZARD','ORE','SELF'];
+const COLS=96, ROWS=32;                 /* pixels -> 48 x 8 Braille characters */
+const SC=5;                             /* px scale on canvas */
+
+/* a scene: a corridor with a goal and a hazard, deliberately adjacent so that a
+   pooled 2x4 cell has to choose which one it is talking about. */
+function buildScene(){
+  const g=Array.from({length:ROWS},()=>new Array(COLS).fill('EMPTY'));
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)g[y][x]=(y>2&&y<ROWS-3)?'FLOOR':'EMPTY';
+  for(let y=4;y<ROWS-4;y++){ g[y][0]='WALL'; g[y][COLS-1]='WALL'; }
+  for(let y=0;y<ROWS;y++){ g[y][2]='WALL'; g[y][COLS-3]='WALL'; }
+  const box=(x0,x1,m)=>{for(let y=12;y<22;y++)for(let x=x0;x<x1;x++)g[y][x]=m;};
+  box(14,30,'GOAL'); box(48,64,'HAZARD'); box(36,44,'ORE');
+  for(let y=14;y<20;y++)for(let x=36;x<44;x++)g[y][x]='SELF';
+  return g;
+}
+const SCENE=buildScene();
+
+function render(canvas,pal){
+  const ctx=canvas.getContext('2d');
+  const img=ctx.createImageData(COLS*SC,ROWS*SC);
+  const rgb=[];                              /* the pixel grid the encoder will read */
+  for(let y=0;y<ROWS;y++){
+    rgb.push([]);
+    for(let x=0;x<COLS;x++){
+      const c=pal[SCENE[y][x]]; rgb[y].push(c);
+      for(let dy=0;dy<SC;dy++)for(let dx=0;dx<SC;dx++){
+        const i=((y*SC+dy)*(COLS*SC)+(x*SC+dx))*4;
+        img.data[i]=c[0]; img.data[i+1]=c[1]; img.data[i+2]=c[2]; img.data[i+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+  return rgb;
+}
+function encode(rgb){
+  const lum=rgb.map(row=>row.map(c=>luma8(c[0],c[1],c[2])));
+  const lines=[];
+  for(let cy=0;cy<ROWS/4;cy++){
+    let s='';
+    for(let cx=0;cx<COLS/2;cx++){
+      const blk=[];
+      for(let r=0;r<4;r++)blk.push([lum[cy*4+r][cx*2],lum[cy*4+r][cx*2+1]]);
+      s+=String.fromCodePoint(0x2800+braillePack(blk,110));
+    }
+    lines.push(s);
+  }
+  return {text:lines.join('\n'),lum};
+}
+const hex=c=>'#'+c.map(v=>v.toString(16).padStart(2,'0')).join('');
+
+function draw(mode){
+  const pal=PALETTES[mode];
+  const rgb=render(document.getElementById('canvas'),pal);
+  const {text,lum}=encode(rgb);
+
+  document.getElementById('textout').textContent=text;
+
+  /* the readout that carries the argument */
+  const gl=luma8(...pal.GOAL), hl=luma8(...pal.HAZARD);
+  const same=gl===hl;
+  document.getElementById('verdict').className='verdict '+(same?'v-bad':'v-good');
+  document.getElementById('verdict').innerHTML = same
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span><strong>Indistinguishable.</strong> GOAL <span class="mono">'+(0,240,0).join(',')+'</span> and HAZARD <span class="mono">'+(255,60,255).join(',')+'</span> are both luma <span class="mono">'+gl+'</span>. To Syzygy they are one colour, and the two fields above are identical.</span>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span><strong>Distinguishable.</strong> GOAL is luma <span class="mono">'+gl+'</span>, HAZARD is luma <span class="mono">'+hl+'</span>. A brightness-only agent can separate them &mdash; which is exactly why an ordinary palette hides the problem.</span>';
+
+  document.getElementById('kvproj').innerHTML=[
+    ['projection','R³ &rarr; R, rank 1'],
+    ['weights','77 / 150 / 29'],
+    ['sum','256, exact'],
+    ['GOAL luma',String(gl)],
+    ['HAZARD luma',String(hl)]
+  ].map(r=>'<div class="k">'+r[0]+'</div><div class="v">'+r[1]+'</div>').join('');
+
+  document.getElementById('legend').innerHTML=KEY.map(k=>
+    '<span><i class="sw" style="background:'+hex(pal[k])+'"></i>'+k.toLowerCase()+' <b class="mono" style="color:var(--ink-3);font-weight:400">'+luma8(...pal[k])+'</b></span>'
+  ).join('');
+
+  document.getElementById('modepill').textContent =
+    same ? 'luma('+gl+') holds both task-critical classes'
+         : 'luma '+gl+' vs '+hl+' — separable';
+
+  document.getElementById('btn-adv').setAttribute('aria-pressed', mode==='adversarial');
+  document.getElementById('btn-ord').setAttribute('aria-pressed', mode==='ordinary');
+}
+document.getElementById('btn-adv').onclick=()=>draw('adversarial');
+document.getElementById('btn-ord').onclick=()=>draw('ordinary');
+draw('adversarial');
+</script>
+</body>
+</html>
