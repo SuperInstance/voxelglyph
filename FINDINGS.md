@@ -117,3 +117,64 @@ directly — how much of a voxel world actually has to survive to be actionable.
   Verified against the C constants: luma(255,0,0)=76, luma(0,255,0)=149, luma(0,0,255)=28,
   full white=255 exactly because the weights sum to 256.
 - Syzygy's own suite was run first: **7 suites, 219 checks, 0 failures.**
+
+## exp3 — the minimal sufficient encoding, and the dial nobody thinks about
+
+The question exp1 and exp2 could not answer: **how much of a voxel world has to survive to be
+actionable?** Sweep a per-cell alphabet `S` and find where accuracy stops improving. A linear
+policy throughout, because a deep model can compensate for a starved representation by
+learning nonlinear structure the encoder discarded — which would hide the thing being measured.
+
+**The curve is not monotone, and the reason is the finding.**
+
+| S | bin step | GOAL vs ORE (lumа 145 vs 140) | test acc |
+|---|---|---|---|
+| 8 | 32 | **collide** — both bin 4 | 0.66 |
+| 16 | 16 | separate | **1.00** |
+| 24 | 10 | **collide** — both bin 14 | 0.48 |
+| 32 | 8 | separate | 0.27 *(underfit — see below)* |
+
+Two materials **5 luma apart** collide at `S=8` and `S=24`, and separate at `S=16` and `S=32`.
+Nothing about the materials changed. **What changed is where the bin edges fall.**
+
+**So the dial that matters is alignment, not symbol count.** An alphabet specified as "32
+levels" is not a specification at all — it is 256 possible quantisations of a line, and two
+of them silently merge the two materials this task is about. The same is true of a glyph
+alphabet: "one character per material" is safe; "16 brightness levels" is a coin flip
+decided by which integers you divide by.
+
+**The S=32 column is an underfit artifact, not a result.** Train accuracy there is 0.34 —
+the model never fit, at 5×32 = 160 features on 300 training scenes. It is stable at 0.27
+across 250, 1500 and 6000 steps, which rules out a *convergence* failure but says nothing
+about the encoding. **It is excluded from the conclusion**, and the reason is stated rather
+than quietly dropped.
+
+### What this means for a glyph alphabet
+
+- **One symbol per material is safe.** Identity, not intensity.
+- **An intensity ladder is only as good as its alignment**, and its alignment is invisible in
+  the spec.
+- **The 2×4 pool sets the floor.** A ladder finer than the pool's own quantisation is spend
+  without information, because the pool will flatten it before the policy sees it.
+- Therefore: **an agentic encoding should not be a re-quantised brightness ramp.** It should
+  be a material alphabet, and if any intensity survives it survives because the *pool* keeps
+  it, not because the ladder is fine.
+
+## The bugs this experiment cost, all the same species
+
+Four, and every one produced a number that looked fine:
+
+1. A `train_linear` that was never actually vectorised — three "vectorised" edits were
+   no-ops because the replacement string did not match, and the pure-Python version ran for
+   minutes each attempt.
+2. `random.Random.uniform` called with numpy's `size=` kwarg, raising `TypeError` on the
+   first call. The crash was invisible because the shell pipeline exited 0 and the background
+   task reported **success with no results file written**.
+3. A `numpy` import that had never landed.
+4. One-hot rows reshaped as nested lists, producing a 3-D structure that `matmul` rejected
+   with a core-dimension error that reads like a shape bug and is really a nested-sequence bug.
+
+**The generalisable lesson is the second one.** A pipeline that ends in `head` or `tail`
+reports the exit code of the *last* command. A crash upstream is silently promoted to
+success. **Verify the artifact exists, not the exit status** — which is the same rule as
+"a subagent's `succeeded` is not evidence of a deliverable."
