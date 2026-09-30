@@ -23,6 +23,18 @@ python3 exp1_luma_collision.py    # the provable ceiling, and the blind spot
 python3 exp2_distillation.py      # INCONCLUSIVE -- see FINDINGS.md before citing
 ```
 
+## Landing page
+
+`site/index.html` is a self-contained page with a **live side-by-side demonstration**: a voxel
+scene rendered on the left, and what `syz_luma8 -> Braille` computes from it on the right,
+running the real integer path ported line for line. A toggle swaps between an ordinary palette
+and an adversarial one where GOAL and HAZARD share a luma.
+
+The claim on the page is verified, not asserted. Swapping GOAL and HAZARD under the adversarial
+palette produces **byte-identical** Syzygy text, while a human sees two plainly different
+colours. Under the ordinary palette the text differs, which is exactly why an ordinary palette
+hides the problem.
+
 ## Honest status
 
 | | |
