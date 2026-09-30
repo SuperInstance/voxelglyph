@@ -178,3 +178,39 @@ Four, and every one produced a number that looked fine:
 reports the exit code of the *last* command. A crash upstream is silently promoted to
 success. **Verify the artifact exists, not the exit status** — which is the same rule as
 "a subagent's `succeeded` is not evidence of a deliverable."
+
+### The full sweep, three tasks
+
+| S | chance | LOCALISE | AVOID | **DISAMBIG** |
+|---|---|---|---|---|
+| 1 | 0.200 | 0.2800 | 0.2800 | 0.5100 |
+| 2 | 0.200 | 0.5400 | 0.3800 | 0.5167 |
+| 4 | 0.200 | 0.6633 | 0.6700 | 0.4900 |
+| 8 | 0.200 | 0.7000 | **1.0000** | 0.4800 |
+| 12 | 0.200 | 0.6967 | 0.6633 | 0.4800 |
+| 16 | 0.200 | **1.0000** | **1.0000** | 0.5100 |
+| 24 | 0.200 | 0.4733 | **1.0000** | 0.5167 |
+| 32 | 0.200 | 0.2700 | 0.2700 | 0.5167 |
+
+**DISAMBIG never leaves chance. Not at one size, not at any size.** It sits between 0.4800
+and 0.5167 at every point on the sweep, including S=16 and S=32 where the other two tasks
+reach 1.0000. The policy is linear, the data is plentiful, and the ladder is as fine as it
+goes — and the task is still unsolvable.
+
+The summary line for DISAMBIG says `smallest S = 1`, which is the finding compressed into one
+token: **it needs no symbols, because symbols do not help.**
+
+That is exp1's theorem shown behaviourally. The encoder is not *lossy* about the goal-versus-
+hazard distinction; it is **silent** about it. Refining the ladder only subdivides a value
+that carries nothing.
+
+### The design brief, measured
+
+- **One symbol per material is safe.** Identity, not intensity.
+- **An intensity ladder is safe only if you also specify its alignment**, and alignment is
+  invisible in a spec that says "N levels". LOCALISE reaching 1.0000 at S=16 and 0.4733 at
+  S=24 is the same materials, the same data, and the same policy.
+- **The 2×4 pool sets the floor.** A ladder finer than the pool's own quantisation is spend
+  without information.
+- **For anything requiring material identity, brightness is not a dial at all.** It is a
+  constant, and the constant is chance.
