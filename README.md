@@ -23,7 +23,9 @@ python3 exp1_luma_collision.py    # the provable ceiling, and the blind spot
 python3 exp2_distillation.py      # INCONCLUSIVE -- see FINDINGS.md before citing
 ```
 
-## Landing page
+## Landing page — live
+
+**https://dng8dc2ppoaxp.space.minimax.io**
 
 `site/index.html` is a self-contained page with a **live side-by-side demonstration**: a voxel
 scene rendered on the left, and what `syz_luma8 -> Braille` computes from it on the right,
