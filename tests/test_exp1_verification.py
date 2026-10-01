@@ -32,7 +32,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from syzygy_port import luma8  # instrument under test (pin 2 cross-checks it)
+from syzygy_port import luma8, LUMA_WR  # instrument under test (pin 2 cross-checks it)
 
 FINDINGS = (REPO / "FINDINGS.md").read_text(encoding="utf-8")
 README = (REPO / "README.md").read_text(encoding="utf-8")
@@ -66,9 +66,86 @@ class TestIndependentLuma(unittest.TestCase):
                         f"port disagrees with BT.601 at {(r, g, b)}")
 
     def test_weights_sum_256(self):
-        # The docstring's load-bearing claim: weights sum exactly 256, so the
-        # >>8 is an exact normalisation, not an approximation.
-        self.assertEqual(77 + 150 + 29, 256)
+        """The load-bearing claim: the port's REAL weights sum exactly 256, so the >>8 is
+        an exact normalisation rather than an approximation.
+
+        THIS TEST WAS VACUOUS. The first version read
+            self.assertEqual(77 + 150 + 29, 256)
+        which asserts arithmetic on literals typed into the test body. Setting the port's
+        actual LUMA_WR to (200, 3, 91) -- summing to 294 -- left this test GREEN, because
+        it never read the port at all. A test named for a property of the product whose body
+        never touches the product is worse than no test: it makes the gap look closed.
+        """
+        self.assertEqual(sum(LUMA_WR), 256,
+                         f"port LUMA_WR {LUMA_WR} sums to {sum(LUMA_WR)}, not 256; the >>8 "
+                         f"normalisation is then an approximation, not an exact one")
+        self.assertEqual(LUMA_WR, (77, 150, 29),
+                         f"port LUMA_WR is {LUMA_WR}; every number re-derived in FINDINGS.md "
+                         f"and README.md is stale until they are recomputed against it")
+
+
+class TestProductIsExecuted(unittest.TestCase):
+    """THE CATEGORY ERROR THIS SUITE HAD, and the one that mattered.
+
+    Seven pins re-derived the arithmetic from an independent formula. None of them ever
+    executed `exp1_luma_collision.py` -- the experiment this whole repository is about, and
+    the source of the README's headline finding. Measured with an atexit counter: 0
+    executions across the whole suite.
+
+    Two flagship mutations survived 7/7 green while the product was wrong:
+      * max() -> min()  -- the product reported the NARROWEST luma class as the widest
+        blind spot, which inverts the experiment's conclusion;
+      * STEP 5 -> 200   -- the product swept 8 lattice points instead of 140,608.
+
+    A re-implementation is a verification of the product only if something also pins the
+    re-implementation to the product. These pins are that something. They are the whole
+    point of the file, and they were the whole point of the file before this.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import exp1_luma_collision as product
+        cls.product = product
+        cls.result = product.run()          # EXECUTES THE PRODUCT, not a copy of it
+
+    def test_product_runs_and_returns(self):
+        self.assertTrue(hasattr(self.product, "run"),
+                        "exp1_luma_collision exposes no run(); the pins cannot execute it")
+        self.assertIsInstance(self.result, dict)
+        self.assertIn("widest", self.result)
+
+    def test_product_reports_the_WIDEST_class(self):
+        """The mutation that survived: max() -> min().
+
+        The experiment exists to find the widest equal-luma class. A product reporting the
+        narrowest one has the sign of its headline backwards, and no arithmetic pin can see
+        it, because the arithmetic is identical either way.
+        """
+        widest = self.result["widest"]
+        biggest = max(b["size"] for b in self.result["buckets"])
+        self.assertEqual(widest["size"], biggest,
+                         f"product calls the widest class luma {widest['luma']} with size "
+                         f"{widest['size']}, but the largest bucket it computed has size "
+                         f"{biggest} -- it is reporting something that is not the widest")
+        self.assertEqual(widest["luma"], 140,
+                         f"widest class is luma {widest['luma']}, not the documented 140")
+
+    def test_product_swept_the_documented_lattice(self):
+        """The second mutation that survived: STEP 5 -> 200, 8 points instead of 140,608.
+
+        The arithmetic pins sweep the lattice at STEP=5 themselves and never ask the product
+        what IT swept, so a product that samples almost nothing looks identical to one that
+        samples properly.
+        """
+        self.assertLessEqual(self.result["step"], 5,
+                             f"product swept at STEP={self.result['step']}; anything coarser "
+                             f"than 5 under-samples and every downstream number is a guess")
+        self.assertGreaterEqual(self.result["step"], 1)
+
+    def test_product_far_apart_pair_matches_the_docs(self):
+        """The pair every downstream document quotes, now taken from the PRODUCT."""
+        self.assertEqual(tuple(tuple(c) for c in self.result["far_apart"]),
+                         ((0, 240, 0), (255, 60, 255)))
 
 
 class TestDocQuoteMatch(unittest.TestCase):
